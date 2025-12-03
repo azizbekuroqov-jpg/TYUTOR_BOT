@@ -71,7 +71,7 @@ FACULTIES = {
         "uz": "Iqtisodiyot",
         "tutors": [
             {"name": "Эгамова Дилbar", "id": 115619153},
-            {"name": "Шодиева Гулbahor", "id": 401016810}
+            {"name": "Шодиева Гулbahor", "id": 841780299}
         ]
     }
 }
