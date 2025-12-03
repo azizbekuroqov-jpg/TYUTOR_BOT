@@ -20,7 +20,7 @@ import datetime
 # CONFIG
 # =======================
 
-BOT_TOKEN = "8087802026:AAGj0P9EnsHtZvC6eTbPXOBY_kN9XXvlsqo"
+BOT_TOKEN = "8368341342:AAF-QsZxrdrgrzlppQZpJke9C8tdXNo_VOE"
 ADMIN_ID = 8012275825
 TUTORS_GROUP_ID = -4838121362
 
