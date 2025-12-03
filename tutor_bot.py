@@ -19,8 +19,8 @@ from telegram.ext import (
 # CONFIG
 # =======================
 
-BOT_TOKEN = "8368341342:AAF-QsZxrdrgrzlppQZpJke9C8tdXNo_VOE"          # <-- BU YERGA O'Z BOT TOKENINGIZNI YOZING
-TUTORS_GROUP_ID = -1003374172310           # Siz bergan guruh ID
+BOT_TOKEN = "8368341342:AAF-QsZxrdrgrzlppQZpJke9C8tdXNo_VOE"          # <-- O'Z BOT TOKENINGIZNI YOZING
+TUTORS_GROUP_ID = -1003374172310           # Sizning tyutorlar guruhi ID
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -39,7 +39,11 @@ LANG_PACK = {
         "choose_faculty": "🏫 Fakultetingizni tanlang:",
         "choose_tutor": "👨‍🏫 Tyutorni tanlang:",
         "write_question": "✍️ Savolingizni yozing:",
-        "sent": "✔ Savolingiz tyutorlarga yuborildi!\n⏳ Tez orada javob beramiz.\nMurojaatingiz uchun rahmat!",
+        "sent": (
+            "✔ Savolingiz tyutorlarga yuborildi!\n"
+            "⏳ Tez orada javob beramiz.\n"
+            "Murojaatingiz uchun rahmat!"
+        ),
     },
     "ru": {
         "start": "Здравствуйте!\nВыберите язык:",
@@ -140,7 +144,7 @@ FACULTIES = {
     },
 }
 
-# guruhtagi savol xabari → talaba ID
+# Guruhdagi savol xabari ID → talaba ID
 pending_questions: dict[int, int] = {}
 
 
@@ -148,7 +152,6 @@ pending_questions: dict[int, int] = {}
 # /start
 # =======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Har safar /start bosilganda holatni tozalaymiz
     context.user_data.clear()
 
     keyboard = [
@@ -202,15 +205,14 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =======================
-# Telefon (qo‘lda yozilgan)
+# Private text – telefon yoki savol
 # =======================
 async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = context.user_data.get("step")
 
-    # 1) Telefon kiritish bosqichi
+    # 1) Telefon qo‘lda kiritish
     if step == "phone":
         phone = update.message.text.strip()
-        # Shunchaki raqam bo‘lmasa – ogohlantiramiz
         clean = phone.replace("+", "").replace(" ", "")
         if not clean.isdigit():
             await update.message.reply_text("❗ Telefon raqamini to‘g‘ri kiriting.")
@@ -218,23 +220,20 @@ async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         context.user_data["phone"] = phone
         context.user_data["step"] = "faculty"
-
         await show_faculty_menu(update, context)
         return
 
-    # 2) Savol yozish bosqichi
+    # 2) Savol yozish
     if step == "question":
         await handle_student_question(update, context)
         return
-
-    # Aks holda – e’tibor berilmaydi (bot jim)
+    # Boshqa holatlarda jim turamiz
 
 
 # =======================
 # Fakultet menyusi
 # =======================
-async def show_faculty_menu(update_or_query, context: ContextTypes.DEFAULT_TYPE):
-    """Telefon olingandan keyin fakultetlarni chiqarish."""
+async def show_faculty_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = context.user_data.get("lang", "uz")
     text = LANG_PACK[lang]["choose_faculty"]
 
@@ -243,13 +242,7 @@ async def show_faculty_menu(update_or_query, context: ContextTypes.DEFAULT_TYPE)
         for key, fac in FACULTIES.items()
     ]
 
-    # bu yerga message yoki query kelishi mumkin
-    if isinstance(update_or_query, Update):
-        msg = update_or_query.message
-        await msg.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
-    else:  # callback_query holati
-        q = update_or_query
-        await q.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
 
 
 # =======================
@@ -266,13 +259,11 @@ async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     tutors = FACULTIES[fac_key]["tutors"]
 
-    # Agar tyutor bo'lmasa – to'g'ridan-to'g'ri savol
     if not tutors:
         context.user_data["step"] = "question"
         await query.edit_message_text(LANG_PACK[lang]["write_question"])
         return
 
-    # Tyutorlar ro'yxati
     keyboard = [
         [InlineKeyboardButton(t["name"], callback_data=f"tutor|{fac_key}|{t['id']}")]
         for t in tutors
@@ -317,27 +308,33 @@ async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_
 
     phone = context.user_data.get("phone", "Noma'lum")
     faculty_name = context.user_data.get("faculty_name", "Noma'lum")
+    tutor_id = context.user_data.get("selected_tutor_id")
     tutor_name = context.user_data.get("selected_tutor_name", "Noma'lum")
 
-    # Guruhga xabar formati – siz aytgandek
+    # CLICKABLE mentionlar
+    student_mention = f"[{user.first_name}](tg://user?id={user.id})"
+    tutor_mention = (
+        f"[{tutor_name}](tg://user?id={tutor_id})" if tutor_id else tutor_name
+    )
+
     text = (
-        "📩 Yangi savol!\n"
-        f"👤 Talaba: {user.first_name}\n"
+        "📩 *Yangi savol!*\n"
+        f"👤 Talaba: {student_mention}\n"
         f"📞 {phone}\n"
         f"🏫 Fakulteti: {faculty_name}\n\n"
-        f"👨‍🏫 Tyutor: {tutor_name}\n\n"
+        f"👨‍🏫 Tyutor: {tutor_mention}\n\n"
         f"💬 Savol: {question}"
     )
 
-    sent = await context.bot.send_message(TUTORS_GROUP_ID, text)
+    sent = await context.bot.send_message(
+        TUTORS_GROUP_ID, text, parse_mode="Markdown"
+    )
 
-    # Guruhdagi xabar ID → Talaba ID
     pending_questions[sent.message_id] = user.id
 
     lang = context.user_data.get("lang", "uz")
     await update.message.reply_text(LANG_PACK[lang]["sent"])
 
-    # Bosqich tugadi
     context.user_data["step"] = "done"
 
 
@@ -345,7 +342,7 @@ async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_
 # Guruhda tyutor javobi (reply)
 # =======================
 async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Faqat tutors guruhida ishlaydi
+    # Faqat tyutorlar guruhida
     if update.message.chat_id != TUTORS_GROUP_ID:
         return
 
@@ -353,24 +350,31 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     original_id = update.message.reply_to_message.message_id
-    if original_id not in pending_questions:
+
+    user_id = pending_questions.get(original_id)
+    if not user_id:
         return
 
-    student_id = pending_questions[original_id]
     tutor = update.message.from_user
-    answer = update.message.text
 
-    # Talabaga botdan javob
-    full_name = tutor.first_name
+    # Matn yoki caption
+    answer_text = update.message.text or update.message.caption
+    if not answer_text:
+        answer_text = "🔊 Tyutordan media xabar yuborildi."
+
+    full_name = tutor.first_name or ""
     if tutor.last_name:
-        full_name += " " + tutor.last_name
+        full_name += f" {tutor.last_name}"
 
-    msg = f"👨‍🏫 {full_name}: {answer}"
+    msg = f"👨‍🏫 {full_name}: {answer_text}"
 
-    await context.bot.send_message(student_id, msg)
+    try:
+        await context.bot.send_message(user_id, msg)
+    except Exception as e:
+        logger.error("Talabaga javob yuborishda xato: %s", e)
 
-    # endi boshqa javob bo'lsa ham bitta kifoya – o'chirib yuboramiz
-    del pending_questions[original_id]
+    # Bitta savolga javob berildi – mappingni o‘chiramiz
+    pending_questions.pop(original_id, None)
 
 
 # =======================
@@ -379,7 +383,7 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Private chat uchun
+    # Private chat
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(choose_language, pattern="^lang\\|"))
     app.add_handler(CallbackQueryHandler(faculty_selected, pattern="^faculty\\|"))
@@ -398,10 +402,12 @@ def main():
         )
     )
 
-    # Guruhdagi tyutor javoblari
+    # Guruhdagi tyutor javoblari (hamma oddiy xabarlar)
     app.add_handler(
         MessageHandler(
-            filters.Chat(TUTORS_GROUP_ID) & filters.TEXT & ~filters.COMMAND,
+            filters.Chat(TUTORS_GROUP_ID)
+            & ~filters.COMMAND
+            & ~filters.StatusUpdate.ALL,
             tutor_group_reply,
         )
     )
