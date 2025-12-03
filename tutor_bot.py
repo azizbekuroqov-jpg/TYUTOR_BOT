@@ -120,7 +120,7 @@ FACULTIES = {
         "en": "Hydromelioration",
         "tm": "Gidromeliorasiýa",
         "tutors": [
-            {"name": "Ахмеджанова Гулчеҳра", "id": 503802473}
+            {"name": "Ахмеджанова Гулчеҳра", "id": 841780299}
         ]
     },
     "economy": {
