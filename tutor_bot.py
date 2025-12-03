@@ -89,7 +89,7 @@ FACULTIES = {
         "en": "Hydraulic Engineering",
         "tm": "Gidrotehniki gurluşyk",
         "tutors": [
-            {"name": "Хурсандова Дилафруз", "id": 1720369159},
+            {"name": "Хурсандова Дилафруз", "id": 6939098356},
         ],
     },
     "eco_law": {
