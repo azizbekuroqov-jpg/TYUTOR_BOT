@@ -14,14 +14,13 @@ from telegram.ext import (
     filters,
     ContextTypes
 )
-import datetime
 
+# =============== CONFIG =================
 BOT_TOKEN = "8368341342:AAF-QsZxrdrgrzlppQZpJke9C8tdXNo_VOE"
+TUTORS_GROUP_ID = -1003374172310    # ⚡ YANGI GRUPPA ID
 ADMIN_ID = 8012275825
-TUTORS_GROUP_ID = -4838121362
 
-# ==== 4 TA TIL ====
-
+# =============== TIL PAKETI =============
 LANG_PACK = {
     "uz": {
         "hello": "Assalomu alaykum! 😊",
@@ -65,7 +64,7 @@ LANG_PACK = {
     }
 }
 
-# ==== FAKULTETLAR ====
+# =============== FAKULTETLAR =============
 
 FACULTIES = {
     "hydraulic": {
@@ -91,9 +90,9 @@ FACULTIES = {
     },
     "mech": {
         "uz": "Mexanizatsiya",
-        "ru": "Механизация сельского хозяйства",
-        "en": "Agricultural Mechanization",
-        "tm": "Oba hojalygyny mehanizasiýa",
+        "ru": "Механизация",
+        "en": "Mechanization",
+        "tm": "Mehanizasiýa",
         "tutors": []
     },
     "energy": {
@@ -136,14 +135,9 @@ FACULTIES = {
     }
 }
 
-pending_questions = {}
-
-# =============================
-# /start
-# =============================
+# =============== START ==================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    # Assalomu alaykum!
     await update.message.reply_text("Assalomu alaykum! 😊")
 
     keyboard = [
@@ -152,16 +146,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang|en")],
         [InlineKeyboardButton("🇹🇲 Türkmençe", callback_data="lang|tm")],
     ]
+
     await update.message.reply_text(
         "Tilni tanlang:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# =============================
-# Til tanlash
-# =============================
-
+# =============== TIL TANLASH =============
 async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     query = update.callback_query
     await query.answer()
 
@@ -176,9 +169,7 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.edit_message_text(LANG_PACK[lang]["share_phone"])
     await query.message.reply_text(LANG_PACK[lang]["share_phone"], reply_markup=kb)
 
-# =============================
-# Telefon kelganda
-# =============================
+# =============== TELEFON QABUL QILISH ====
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user = update.message.from_user
@@ -186,30 +177,33 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["phone"] = phone
 
     lang = context.user_data["lang"]
+    text = LANG_PACK[lang]
 
-    # Guruhga habar
-    await context.bot.send_message(
-        TUTORS_GROUP_ID,
-        f"{LANG_PACK[lang]['new_student']}\n"
-        f"👤 [{user.first_name}](tg://user?id={user.id})\n"
-        f"📞 {phone}",
-        parse_mode="Markdown"
-    )
+    # ⚡ GURUHGA YUBORISHDA XATO BO‘LSA HAM BOT TO‘XTAMAYDI
+    try:
+        await context.bot.send_message(
+            TUTORS_GROUP_ID,
+            f"{text['new_student']}\n"
+            f"👤 [{user.first_name}](tg://user?id={user.id})\n"
+            f"📞 {phone}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        print("Guruhga yuborishda xato:", e)
+        pass
 
-    # Fakultetlar
+    # 🔥 FAKULTET MENYUSI HAR DOIM CHIQADI
     keyboard = [
-        [InlineKeyboardButton(fac[lang], callback_data=f"faculty|{k}")]
-        for k, fac in FACULTIES.items()
+        [InlineKeyboardButton(fac[lang], callback_data=f"faculty|{key}")]
+        for key, fac in FACULTIES.items()
     ]
 
     await update.message.reply_text(
-        LANG_PACK[lang]["choose_faculty"],
+        text["choose_faculty"],
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# =============================
-# Fakultet tanlash
-# =============================
+# =============== FAKULTET TANLASH =========
 async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
@@ -236,9 +230,7 @@ async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(kb)
     )
 
-# =============================
-# Tutor tanlash
-# =============================
+# =============== TUTOR TANLASH ============
 async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     query = update.callback_query
@@ -258,9 +250,7 @@ async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await query.edit_message_text(LANG_PACK[lang]["write_question"])
 
-# =============================
-# Savol yozilganda
-# =============================
+# =============== SAVOL QABUL QILISH =======
 async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.user_data.get("step") != "ask":
@@ -282,7 +272,7 @@ async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👤 Talaba: [{user.first_name}](tg://user?id={user.id})\n"
         f"📞 Telefon: {phone}\n"
         f"🏫 Fakultet: {faculty}\n\n"
-        f"👨‍🏫 *Tyutor:* {mention}  \n\n"
+        f"👨‍🏫 *Tyutor:* {mention}\n\n"
         f"💬 *Savol:* {question}"
     )
 
@@ -292,24 +282,18 @@ async def handle_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    await update.message.reply_text(
-        LANG_PACK[lang]["sent_to_group"]
-    )
+    await update.message.reply_text(LANG_PACK[lang]["sent_to_group"])
 
     context.user_data["step"] = None
 
-# =============================
-# Botni ishga tushirish
-# =============================
+# =============== BOT START ==================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-
     app.add_handler(CallbackQueryHandler(choose_language, pattern="lang"))
     app.add_handler(CallbackQueryHandler(faculty_selected, pattern="faculty"))
     app.add_handler(CallbackQueryHandler(tutor_selected, pattern="tutor"))
-
     app.add_handler(MessageHandler(filters.CONTACT, handle_contact))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_question))
 
