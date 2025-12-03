@@ -7,6 +7,7 @@ from telegram import (
     InlineKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 from telegram.ext import (
     Application,
@@ -21,8 +22,8 @@ from telegram.ext import (
 # CONFIG
 # =======================
 
-BOT_TOKEN = "8368341342:AAF-QsZxrdrgrzlppQZpJke9C8tdXNo_VOE"          # <-- O'Z BOT TOKENINGIZNI YOZING
-TUTORS_GROUP_ID = -1003374172310           # Sizning tyutorlar guruhi ID
+BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"          # <-- O'Z BOT TOKENINGIZNI YOZING
+TUTORS_GROUP_ID = -1003374172310           # <-- TYUTORLAR GURUHI ID
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -47,7 +48,6 @@ LANG_PACK = {
             "Murojaatingiz uchun rahmat!"
         ),
         "again": "➕ Yana savol bermoqchimisiz?",
-        "timeout": "⏰ 10 daqiqa ichida savol yubormadingiz.\nQaytadan boshlash uchun tilni tanlang:",
     },
     "ru": {
         "start": "Здравствуйте!\nВыберите язык:",
@@ -57,7 +57,6 @@ LANG_PACK = {
         "write_question": "✍️ Напишите свой вопрос:",
         "sent": "✔ Ваш вопрос отправлен тьюторам!\n⏳ Скоро получите ответ.",
         "again": "➕ Хотите задать ещё вопрос?",
-        "timeout": "⏰ В течение 10 минут вопрос не был отправлен.\nНачните заново — выберите язык:",
     },
     "en": {
         "start": "Hello!\nChoose language:",
@@ -67,7 +66,6 @@ LANG_PACK = {
         "write_question": "✍️ Write your question:",
         "sent": "✔ Your question has been sent!\n⏳ Tutors will reply soon.",
         "again": "➕ Do you want to ask another question?",
-        "timeout": "⏰ No question sent within 10 minutes.\nPlease choose your language again:",
     },
     "tm": {
         "start": "Salam!\nDili saýlaň:",
@@ -77,7 +75,6 @@ LANG_PACK = {
         "write_question": "✍️ Soragyňyzy ýazyň:",
         "sent": "✔ Soragyňyz ugradyldy!\n⏳ Jogap gysga wagtda gelýär.",
         "again": "➕ Ýene-de sorag bermek isleýärsiňizmi?",
-        "timeout": "⏰ 10 minut içinde sorag edilmedi.\nBaşdan başlamak üçin dili saýlaň:",
     },
 }
 
@@ -92,7 +89,7 @@ FACULTIES = {
         "en": "Hydraulic Engineering",
         "tm": "Gidrotehniki gurluşyk",
         "tutors": [
-            {"name": "Хурсандова Дилафруз", "id": 8012275825},
+            {"name": "Хурсандова Дилафруз", "id": 1720369159},
         ],
     },
     "eco_law": {
@@ -162,7 +159,9 @@ pending_questions: dict[int, int] = {}
 # /start
 # =======================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Har safar /start bo‘lsa — user uchun holatni tozalaymiz
     context.user_data.clear()
+    context.user_data["state"] = "await_lang"
 
     keyboard = [
         [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
@@ -197,10 +196,11 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lang = query.data.split("|")[1]
     context.user_data["lang"] = lang
-    context.user_data["step"] = "phone"
+    context.user_data["state"] = "await_phone"
 
     text = LANG_PACK[lang]
 
+    # Telefon uchun tugma — faqat shu yerda chiqadi
     kb = ReplyKeyboardMarkup(
         [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
         resize_keyboard=True,
@@ -215,12 +215,15 @@ async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Telefon (contact) – faqat PHONE bosqichida
 # =======================
 async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("step") != "phone":
+    if context.user_data.get("state") != "await_phone":
         return
 
     phone = update.message.contact.phone_number
     context.user_data["phone"] = phone
-    context.user_data["step"] = "faculty"
+    context.user_data["state"] = "await_faculty"
+
+    # Telefon tugmasini yo‘qotamiz
+    await update.message.reply_text("✅ Raqam qabul qilindi.", reply_markup=ReplyKeyboardRemove())
 
     await show_faculty_menu(update, context)
 
@@ -229,10 +232,10 @@ async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Private text – telefon yoki savol
 # =======================
 async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    step = context.user_data.get("step")
+    state = context.user_data.get("state")
 
     # 1) Telefon qo‘lda kiritish
-    if step == "phone":
+    if state == "await_phone":
         phone = update.message.text.strip()
         clean = phone.replace("+", "").replace(" ", "")
         if not clean.isdigit():
@@ -240,51 +243,20 @@ async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         context.user_data["phone"] = phone
-        context.user_data["step"] = "faculty"
+        context.user_data["state"] = "await_faculty"
+
+        # Telefon tugmasini yo‘qotamiz
+        await update.message.reply_text("✅ Raqam qabul qilindi.", reply_markup=ReplyKeyboardRemove())
+
         await show_faculty_menu(update, context)
         return
 
-    # 2) Savol yozish
-    if step == "question":
+    # 2) Savol yozish bosqichi
+    if state == "await_question":
         await handle_student_question(update, context)
         return
-    # Boshqa holatlarda jim turamiz
 
-
-# =======================
-# 10 daqiqa timeout
-# =======================
-async def question_timeout(context: ContextTypes.DEFAULT_TYPE):
-    job = context.job
-    chat_id = job.chat_id
-
-    ud = context.application.user_data.get(chat_id)
-    if ud is not None:
-        ud.clear()
-
-    # Default til — uz
-    text = LANG_PACK["uz"]["timeout"]
-    await context.bot.send_message(
-        chat_id,
-        text,
-        reply_markup=make_lang_keyboard(),
-    )
-
-
-def schedule_question_timeout(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Eski timeout bo‘lsa – o‘chirib tashlaymiz
-    old_job = context.user_data.get("timeout_job")
-    if old_job:
-        old_job.schedule_removal()
-
-    chat_id = update.effective_chat.id
-    job = context.job_queue.run_once(
-        question_timeout,
-        when=600,  # 10 minut
-        chat_id=chat_id,
-        name=f"timeout_{chat_id}",
-    )
-    context.user_data["timeout_job"] = job
+    # Boshqa hollarda — hech narsa qilmaymiz (bot jim)
 
 
 # =======================
@@ -310,25 +282,27 @@ async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
 
     fac_key = query.data.split("|")[1]
-    context.user_data["faculty_key"] = fac_key
     lang = context.user_data.get("lang", "uz")
+
+    context.user_data["faculty_key"] = fac_key
     faculty_name = FACULTIES[fac_key][lang]
     context.user_data["faculty_name"] = faculty_name
 
     tutors = FACULTIES[fac_key]["tutors"]
 
+    # Agar tyutor bo‘lmasa — to‘g‘ridan-to‘g‘ri savol
     if not tutors:
-        context.user_data["step"] = "question"
-        schedule_question_timeout(update, context)
+        context.user_data["state"] = "await_question"
         await query.edit_message_text(LANG_PACK[lang]["write_question"])
         return
 
+    # Tyutorlar menyusi
     keyboard = [
         [InlineKeyboardButton(t["name"], callback_data=f"tutor|{fac_key}|{t['id']}")]
         for t in tutors
     ]
 
-    context.user_data["step"] = "tutor"
+    context.user_data["state"] = "await_tutor"
 
     await query.edit_message_text(
         LANG_PACK[lang]["choose_tutor"],
@@ -347,7 +321,7 @@ async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tutor_id = int(tutor_id)
     lang = context.user_data.get("lang", "uz")
 
-    # Fakultet nomini yana bir marta aniq yozib qo‘yamiz
+    # Fakultet nomini ham qayta aniq saqlaymiz
     context.user_data["faculty_name"] = FACULTIES[fac_key][lang]
 
     tutor_name = next(
@@ -356,9 +330,7 @@ async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["selected_tutor_id"] = tutor_id
     context.user_data["selected_tutor_name"] = tutor_name
-    context.user_data["step"] = "question"
-
-    schedule_question_timeout(update, context)
+    context.user_data["state"] = "await_question"
 
     await query.edit_message_text(LANG_PACK[lang]["write_question"])
 
@@ -367,21 +339,20 @@ async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Talaba savolini qabul qilish
 # =======================
 async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Timeoutni bekor qilamiz
-    job = context.user_data.pop("timeout_job", None)
-    if job:
-        job.schedule_removal()
+    # Faqat to‘g‘ri bosqichda ishlasin
+    if context.user_data.get("state") != "await_question":
+        return
 
     user = update.message.from_user
     question = update.message.text
 
-    phone = context.user_data["phone"]
-    faculty_name = context.user_data["faculty_name"]
+    phone = context.user_data.get("phone", "Noma'lum")
+    faculty_name = context.user_data.get("faculty_name", "Noma'lum")
     tutor_id = context.user_data.get("selected_tutor_id")
     tutor_name = context.user_data.get("selected_tutor_name", "Noma'lum")
     lang = context.user_data.get("lang", "uz")
 
-    # CLICKABLE mentionlar — HTML orqali
+    # CLICKABLE mentionlar — HTML
     student_mention = f'<a href="tg://user?id={user.id}">{html.escape(user.first_name)}</a>'
     if tutor_id:
         tutor_mention = f'<a href="tg://user?id={tutor_id}">{html.escape(tutor_name)}</a>'
@@ -401,12 +372,13 @@ async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_
         TUTORS_GROUP_ID, text, parse_mode="HTML"
     )
 
+    # Bu guruh xabariga reply qilinsa — qaysi talabaga tegishli ekanini bilamiz
     pending_questions[sent.message_id] = user.id
 
     await update.message.reply_text(LANG_PACK[lang]["sent"])
 
-    # savol jarayoni tugadi
-    context.user_data["step"] = "done"
+    # Savoldan keyin holatni "tayyor" qilib qo‘yamiz
+    context.user_data["state"] = "idle"
 
 
 # =======================
@@ -421,13 +393,11 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     original_id = update.message.reply_to_message.message_id
-
     user_id = pending_questions.get(original_id)
     if not user_id:
         return
 
     tutor = update.message.from_user
-    # Matn yoki caption (media bo‘lsa)
     answer_text = update.message.text or update.message.caption
     if not answer_text:
         answer_text = "🔊 Tyutordan media xabar yuborildi."
@@ -444,10 +414,7 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error("Talabaga javob yuborishda xato: %s", e)
 
     # Talabaga "yana savol berish" tugmasi
-    # (tilni user_data'dan olishga harakat qilamiz, bo'lmasa uz)
-    ud = context.application.user_data.get(user_id, {})
-    lang = ud.get("lang", "uz")
-
+    lang = "uz"  # agar user_data bo‘lmasa ham default
     keyboard = [
         [InlineKeyboardButton("➕ Yana savol berish", callback_data="again")]
     ]
@@ -458,7 +425,7 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-    # endi bu savol uchun mappingni o‘chiramiz
+    # Bu savol bo‘yicha mappingni o‘chirib tashlaymiz
     pending_questions.pop(original_id, None)
 
 
@@ -469,8 +436,9 @@ async def ask_again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    # Holatni qayta fakultet tanlashga qaytaramiz
     lang = context.user_data.get("lang", "uz")
-    context.user_data["step"] = "faculty"
+    context.user_data["state"] = "await_faculty"
 
     keyboard = [
         [InlineKeyboardButton(fac[lang], callback_data=f"faculty|{key}")]
