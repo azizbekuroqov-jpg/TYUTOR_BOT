@@ -32,7 +32,8 @@ LANG = {
         "sent": "✔ Savolingiz yuborildi!\n⏳ Tez orada javob beramiz.",
         "again": "➕ Yana savol berish",
         "again_msg": "Yana savol bermoqchimisiz?",
-        "err_phone": "❗ Telefon raqami noto‘g‘ri."
+        "err_phone": "❗ Telefon raqami noto‘g‘ri.",
+        "use_buttons": "Iltimos, tugmalardan foydalaning."
     },
     "ru": {
         "start": "Здравствуйте!\nВыберите язык:",
@@ -44,7 +45,8 @@ LANG = {
         "sent": "✔ Ваш вопрос отправлен!\n⏳ Скоро ответим.",
         "again": "➕ Задать ещё вопрос",
         "again_msg": "Хотите задать еще вопрос?",
-        "err_phone": "❗ Неверный номер."
+        "err_phone": "❗ Неверный номер.",
+        "use_buttons": "Пожалуйста, используйте кнопки."
     },
     "en": {
         "start": "Hello!\nChoose language:",
@@ -56,7 +58,8 @@ LANG = {
         "sent": "✔ Sent!\n⏳ Tutors will reply soon.",
         "again": "➕ Ask another question",
         "again_msg": "Want to ask another question?",
-        "err_phone": "❗ Invalid phone number."
+        "err_phone": "❗ Invalid phone number.",
+        "use_buttons": "Please use the buttons."
     },
     "tm": {
         "start": "Salam!\nDili saýlaň:",
@@ -68,7 +71,8 @@ LANG = {
         "sent": "✔ Ugratdyk!\n⏳ Jogap geler.",
         "again": "➕ Ýene sorag bermek",
         "again_msg": "Ýene sorag bermek isleýärsiňizmi?",
-        "err_phone": "❗ Telefon nädogry."
+        "err_phone": "❗ Telefon nädogry.",
+        "use_buttons": "Düwmelerden peýdalanyň."
     }
 }
 
@@ -133,18 +137,18 @@ FACULTIES = {
         "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Эгамова Дильбар", "id": 115619153},
-            {"name": "Шодиеva Гулбахор", "id": 401016810},
+            {"name": "Шодиева Гулбахор", "id": 401016810},
         ]
     }
 }
 
-pending_messages = {}  # msg_id -> {"user_id":..., "lang":...}
+# pending_messages[msg_id] = {"user_id":..., "lang":...}
+pending_messages = {}
 
 # =====================
 # HELPERS
 # =====================
 def get_lang(context: ContextTypes.DEFAULT_TYPE) -> str:
-    # Agar user tanlamagan bo'lsa ham, default = 'uz'
     return context.user_data.get("lang", "uz")
 
 def T(context: ContextTypes.DEFAULT_TYPE, key: str) -> str:
@@ -160,8 +164,8 @@ def faculties_keyboard(lang: str) -> InlineKeyboardMarkup:
 # /start
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Faqat boshlashda tozalaymiz
     context.user_data.clear()
+    context.user_data["state"] = "lang"
 
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
@@ -181,38 +185,52 @@ async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     lang = q.data.split("|")[1]
     context.user_data["lang"] = lang
+    context.user_data["state"] = "phone"
 
     kb = ReplyKeyboardMarkup(
         [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True
     )
-
     await q.message.reply_text(LANG[lang]["phone"], reply_markup=kb)
 
 # =====================
-# TELEFON
+# TELEFON (KONTAKT)
 # =====================
-async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE, from_contact: bool):
+async def phone_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    state = context.user_data.get("state")
+    if state not in (None, "phone"):
+        # Noto'g'ri bosqichda kelgan kontaktni e'tiborsiz qoldiramiz
+        return
+
+    phone = update.message.contact.phone_number
+    context.user_data["phone"] = phone
+
     lang = get_lang(context)
     t = LANG[lang]
 
-    if from_contact:
-        phone = update.message.contact.phone_number
-    else:
-        raw = (update.message.text or "").strip()
-        phone = raw.replace(" ", "").replace("-", "")
-        if not phone or not phone.replace("+", "").isdigit():
-            await update.message.reply_text(t["err_phone"])
-            return
+    context.user_data["state"] = "faculty"
+    await update.message.reply_text(t["phone_ok"], reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(t["faculty"], reply_markup=faculties_keyboard(lang))
+
+# =====================
+# TELEFON (MATN)
+# =====================
+async def phone_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = get_lang(context)
+    t = LANG[lang]
+
+    raw = (update.message.text or "").strip()
+    phone = raw.replace(" ", "").replace("-", "")
+    if not phone or not phone.replace("+", "").isdigit():
+        await update.message.reply_text(t["err_phone"])
+        return
 
     context.user_data["phone"] = phone
+    context.user_data["state"] = "faculty"
 
     await update.message.reply_text(t["phone_ok"], reply_markup=ReplyKeyboardRemove())
-    await update.message.reply_text(
-        t["faculty"],
-        reply_markup=faculties_keyboard(lang)
-    )
+    await update.message.reply_text(t["faculty"], reply_markup=faculties_keyboard(lang))
 
 # =====================
 # FAKULTET
@@ -231,6 +249,7 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not tutors:
         context.user_data["tutor_id"] = None
+        context.user_data["state"] = "question"
         await q.message.reply_text(t["question"])
         return
 
@@ -239,6 +258,7 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for tut in tutors
     ])
 
+    context.user_data["state"] = "tutor"
     await q.message.reply_text(t["tutor"], reply_markup=kb)
 
 # =====================
@@ -250,43 +270,35 @@ async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     tutor_id = int(q.data.split("|")[1])
     context.user_data["tutor_id"] = tutor_id
+    context.user_data["state"] = "question"
 
     await q.message.reply_text(T(context, "question"))
 
 # =====================
-# SAVOLNI GURUHGА YUBORISH
+# SAVOL → GURUH
 # =====================
 async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
+    state = context.user_data.get("state")
+    if state != "question":
+        # boshqa bosqichda yozsa – tugmadan foydalanish kerak
+        await update.message.reply_text(T(context, "use_buttons"))
+        return
 
+    user = update.message.from_user
     phone = context.user_data.get("phone")
     fac_key = context.user_data.get("faculty_key")
 
-    # Telefon yoki fakultet yo'q bo'lsa – savol qabul qilmaymiz
+    # Ehtiyot chorasi: biror narsa yo'q bo'lsa – ketmaydi
     if not phone or not fac_key:
-        lang = get_lang(context)
-        t = LANG[lang]
-
-        if not phone:
-            kb = ReplyKeyboardMarkup(
-                [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
-                resize_keyboard=True,
-                one_time_keyboard=True
-            )
-            await update.message.reply_text(t["phone"], reply_markup=kb)
-        else:
-            await update.message.reply_text(
-                t["faculty"],
-                reply_markup=faculties_keyboard(lang)
-            )
+        await update.message.reply_text("Iltimos /start ni bosib qaytadan boshlang.")
+        context.user_data.clear()
         return
 
     lang = get_lang(context)
     t = LANG[lang]
 
-    tutor_id = context.user_data.get("tutor_id")
     faculty_name = FACULTIES[fac_key][lang]
-
+    tutor_id = context.user_data.get("tutor_id")
     tutor_name = None
     if tutor_id:
         for tut in FACULTIES[fac_key]["tutors"]:
@@ -313,9 +325,7 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     try:
         sent = await context.bot.send_message(
-            TUTORS_GROUP_ID,
-            msg,
-            parse_mode="HTML"
+            TUTORS_GROUP_ID, msg, parse_mode="HTML"
         )
         pending_messages[sent.message_id] = {"user_id": user.id, "lang": lang}
         await update.message.reply_text(t["sent"])
@@ -325,6 +335,8 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❗ Savolingizni yuborishda texnik xato yuz berdi.\n"
             "Iltimos, keyinroq yana urinib ko‘ring."
         )
+
+    context.user_data["state"] = "idle"
 
 # =====================
 # TUTOR → TALABA JAVOB
@@ -356,9 +368,7 @@ async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👨‍🏫 {full_name}:\n{ans}"
     )
 
-    kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton(t["again"], callback_data="again")]]
-    )
+    kb = InlineKeyboardMarkup([[InlineKeyboardButton(t["again"], callback_data="again")]])
     await context.bot.send_message(user_id, t["again_msg"], reply_markup=kb)
 
     del pending_messages[orig_id]
@@ -373,48 +383,28 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = get_lang(context)
     t = LANG[lang]
 
-    kb = faculties_keyboard(lang)
-    await q.message.reply_text(t["faculty"], reply_markup=kb)
+    context.user_data["state"] = "faculty"
+    await q.message.reply_text(t["faculty"], reply_markup=faculties_keyboard(lang))
 
 # =====================
-# PRIVATE ROUTER
+# PRIVATE TEXT ROUTER
 # =====================
-async def private_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Contact kelgan bo'lsa – har doim telefon sifatida qabul qilamiz
-    if update.message.contact:
-        await handle_phone(update, context, from_contact=True)
+async def private_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    state = context.user_data.get("state")
+
+    # Hech narsa boshlanmagan bo'lsa
+    if not state:
+        await update.message.reply_text("Iltimos /start ni bosing.")
         return
 
-    text = (update.message.text or "").strip()
-
-    # /start va boshqa commandlar – alohida handlerda
-    if text.startswith("/"):
-        return
-
-    # Agar telefon yo'q bo'lsa – telefon so'raymiz
-    if "phone" not in context.user_data:
-        lang = get_lang(context)
-        t = LANG[lang]
-        kb = ReplyKeyboardMarkup(
-            [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
-            resize_keyboard=True,
-            one_time_keyboard=True
-        )
-        await update.message.reply_text(t["phone"], reply_markup=kb)
-        return
-
-    # Fakultet tanlanmagan – fakultet so'raymiz
-    if "faculty_key" not in context.user_data:
-        lang = get_lang(context)
-        t = LANG[lang]
-        await update.message.reply_text(
-            t["faculty"],
-            reply_markup=faculties_keyboard(lang)
-        )
-        return
-
-    # Qolgan barcha holatlarda – savol
-    await question_handler(update, context)
+    if state == "phone":
+        await phone_text(update, context)
+    elif state in ("faculty", "tutor"):
+        await update.message.reply_text(T(context, "use_buttons"))
+    elif state in ("question", "idle"):
+        await question_handler(update, context)
+    else:
+        await update.message.reply_text("Iltimos /start ni bosing.")
 
 # =====================
 # MAIN
@@ -429,16 +419,14 @@ def main():
     app.add_handler(CallbackQueryHandler(choose_tutor, pattern="^tutor"))
     app.add_handler(CallbackQueryHandler(again, pattern="^again$"))
 
-    # Private chat – bitta router
-    app.add_handler(MessageHandler(filters.ChatType.PRIVATE, private_router))
+    # Private chat
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, phone_contact))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+                                   private_text_router))
 
     # Tutorlar guruhi
-    app.add_handler(
-        MessageHandler(
-            filters.Chat(TUTORS_GROUP_ID) & filters.TEXT & ~filters.COMMAND,
-            tutor_reply
-        )
-    )
+    app.add_handler(MessageHandler(filters.Chat(TUTORS_GROUP_ID) & filters.TEXT & ~filters.COMMAND,
+                                   tutor_reply))
 
     app.run_polling()
 
