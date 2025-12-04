@@ -12,7 +12,7 @@ from telegram.ext import (
 # =====================
 # CONFIG
 # =====================
-BOT_TOKEN = "BOT_TOKENINGIZ"           # 🔥 O'ZGARTIRING
+BOT_TOKEN = "8368341342:AAFubPHLot6nOj4UupdkZzC1YD-5RO1_tp0"           # 🔥 O'ZGARTIRING
 TUTORS_GROUP_ID = -1003374172310       # 🔥 O'ZGARTIRING
 
 logging.basicConfig(level=logging.INFO)
