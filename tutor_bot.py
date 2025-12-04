@@ -12,8 +12,8 @@ from telegram.ext import (
 # =====================
 # CONFIG
 # =====================
-BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"           # 🔥 O'ZGARTIRING
-TUTORS_GROUP_ID = -1003374172310       # 🔥 O'ZGARTIRING
+BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"  # ❗ TOKENNI KEYIN ALMASHTIRING
+TUTORS_GROUP_ID = -1003374172310  # ❗ GURUH ID
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,7 +32,8 @@ LANG = {
         "sent": "✔ Savolingiz yuborildi!\n⏳ Tez orada javob beramiz.",
         "again": "➕ Yana savol berish",
         "again_msg": "Yana savol bermoqchimisiz?",
-        "err_phone": "❗ Telefon raqami noto‘g‘ri."
+        "err_phone": "❗ Telefon raqami noto‘g‘ri.",
+        "start_first": "Avval /start ni bosib tilni tanlang."
     },
     "ru": {
         "start": "Здравствуйте!\nВыберите язык:",
@@ -44,7 +45,8 @@ LANG = {
         "sent": "✔ Ваш вопрос отправлен!\n⏳ Скоро ответим.",
         "again": "➕ Задать ещё вопрос",
         "again_msg": "Хотите задать еще вопрос?",
-        "err_phone": "❗ Неверный номер."
+        "err_phone": "❗ Неверный номер.",
+        "start_first": "Сначала нажмите /start и выберите язык."
     },
     "en": {
         "start": "Hello!\nChoose language:",
@@ -56,7 +58,8 @@ LANG = {
         "sent": "✔ Sent!\n⏳ Tutors will reply soon.",
         "again": "➕ Ask another question",
         "again_msg": "Want to ask another question?",
-        "err_phone": "❗ Invalid phone number."
+        "err_phone": "❗ Invalid phone number.",
+        "start_first": "Please press /start and choose a language first."
     },
     "tm": {
         "start": "Salam!\nDili saýlaň:",
@@ -68,7 +71,8 @@ LANG = {
         "sent": "✔ Ugratdyk!\n⏳ Jogap geler.",
         "again": "➕ Ýene sorag bermek",
         "again_msg": "Ýene sorag bermek isleýärsiňizmi?",
-        "err_phone": "❗ Telefon nädogry."
+        "err_phone": "❗ Telefon nädogry.",
+        "start_first": "Ilki bilen /start basyp dili saýlaň."
     }
 }
 
@@ -181,17 +185,26 @@ async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # PHONE HANDLER
 # =====================
 async def phone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("state") != "phone":
+    """
+    Raqamni kontakt orqali ham, oddiy matn orqali ham qabul qiladi.
+    State tekshiruvini juda qattiq qilmaymiz, shunda user adashsa ham o‘tib ketadi.
+    """
+    lang = context.user_data.get("lang")
+    if not lang:
+        # Til tanlanmagan bo‘lsa
+        lang = "uz"
+        await update.message.reply_text(LANG[lang]["start_first"])
         return
 
-    lang = context.user_data["lang"]
     t = LANG[lang]
 
+    # Kontakt orqali keldi
     if update.message.contact:
         phone = update.message.contact.phone_number
     else:
-        phone = update.message.text.replace(" ", "").replace("-", "")
-        if not phone.replace("+","").isdigit():
+        # Matn shaklida keldi
+        phone = (update.message.text or "").replace(" ", "").replace("-", "")
+        if not phone or not phone.replace("+", "").isdigit():
             await update.message.reply_text(t["err_phone"])
             return
 
@@ -215,7 +228,7 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
 
     fac_key = q.data.split("|")[1]
-    lang = context.user_data["lang"]
+    lang = context.user_data.get("lang", "uz")
     t = LANG[lang]
 
     context.user_data["faculty_key"] = fac_key
@@ -229,8 +242,8 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(t["name"], callback_data=f"tutor|{t['id']}")]
-        for t in tutors
+        [InlineKeyboardButton(tut["name"], callback_data=f"tutor|{tut['id']}")]
+        for tut in tutors
     ])
 
     context.user_data["state"] = "tutor"
@@ -247,7 +260,7 @@ async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["tutor_id"] = tutor_id
     context.user_data["state"] = "question"
 
-    lang = context.user_data["lang"]
+    lang = context.user_data.get("lang", "uz")
     t = LANG[lang]
 
     await q.message.reply_text(t["question"])
@@ -260,12 +273,12 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user = update.message.from_user
-    lang = context.user_data["lang"]
+    lang = context.user_data.get("lang", "uz")
     t = LANG[lang]
 
-    phone = context.user_data["phone"]
-    fac_key = context.user_data["faculty_key"]
-    faculty = FACULTIES[fac_key][lang]
+    phone = context.user_data.get("phone", "—")
+    fac_key = context.user_data.get("faculty_key")
+    faculty = FACULTIES[fac_key][lang] if fac_key else "—"
 
     tutor_id = context.user_data.get("tutor_id")
     tutor_name = None
@@ -347,10 +360,7 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
 
-    lang = (
-        context.user_data.get("lang")
-        or LANG.keys().__iter__().__next__()   # fallback
-    )
+    lang = context.user_data.get("lang", "uz")
     t = LANG[lang]
 
     context.user_data["state"] = "faculty"
@@ -363,24 +373,43 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(t["faculty"], reply_markup=kb)
 
 # =====================
+# PRIVATE TEXT ROUTER
+# =====================
+async def private_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Private chatdagi ODDIY MATN xabarlari shu yerga keladi.
+    State bo‘yicha qaysi handlerni chaqiramiz.
+    """
+    state = context.user_data.get("state")
+
+    if state == "phone" or ("phone" not in context.user_data and state is None):
+        await phone_handler(update, context)
+    elif state == "question":
+        await question_handler(update, context)
+    else:
+        # Noma'lum holat — userga /start ni eslatamiz
+        lang = context.user_data.get("lang", "uz")
+        await update.message.reply_text(LANG[lang]["start_first"])
+
+# =====================
 # MAIN
 # =====================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
+
     app.add_handler(CallbackQueryHandler(choose_lang, pattern="^lang"))
     app.add_handler(CallbackQueryHandler(choose_faculty, pattern="^fac"))
     app.add_handler(CallbackQueryHandler(choose_tutor, pattern="^tutor"))
     app.add_handler(CallbackQueryHandler(again, pattern="^again$"))
 
-    # Private
-    app.add_handler(MessageHandler(filters.CONTACT, phone_handler))
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, phone_handler))
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, question_handler))
+    # Private: kontakt va matnni alohida boshqaramiz
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, phone_handler))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, private_text_router))
 
-    # Group reply
-    app.add_handler(MessageHandler(filters.TEXT & filters.Chat(TUTORS_GROUP_ID), tutor_reply))
+    # Group reply (tyutorlar guruhi)
+    app.add_handler(MessageHandler(filters.Chat(TUTORS_GROUP_ID) & filters.TEXT & ~filters.COMMAND, tutor_reply))
 
     app.run_polling()
 
