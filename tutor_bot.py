@@ -22,7 +22,7 @@ from telegram.ext import (
 # CONFIG
 # =======================
 
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"      # <-- O'Z BOT TOKENINGIZNI YOZING
+BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"      # <-- O'Z BOT TOKENINGIZNI YOZING
 TUTORS_GROUP_ID = -1003374172310       # <-- TYUTORLAR GURUHI ID
 
 logging.basicConfig(
