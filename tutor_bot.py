@@ -85,7 +85,7 @@ FACULTIES = {
         "ru": "Гидротехническое строительство",
         "en": "Hydraulic Engineering",
         "tm": "Gidrotehniki gurluşyk",
-        "tutors": [{"name": "Хурсандова Дилафруз", "id": 6939098356}]
+        "tutors": [{"name": "Хурсандова Дилафруз", "id": 8012275825}]
     },
     "eco_law": {
         "uz": "Ekologiya va huquq",
