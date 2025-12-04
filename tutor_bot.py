@@ -12,8 +12,8 @@ from telegram.ext import (
 # =====================
 # CONFIG
 # =====================
-BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"
-TUTORS_GROUP_ID = -1003374172310
+BOT_TOKEN = "8368341342:AAEI1mEI17zWjOJYPogINydMQEIKE1XDLcE"   # <-- tokeningiz
+TUTORS_GROUP_ID = -1003374172310                              # <-- guruh ID
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -85,7 +85,9 @@ FACULTIES = {
         "ru": "Гидротехническое строительство",
         "en": "Hydraulic Engineering",
         "tm": "Gidrotehniki gurluşyk",
-        "tutors": [{"name": "Хурсандова Дилафруз", "id": 6939098356}]
+        "tutors": [
+            {"name": "Хурсандова Дилафруз", "id": 6939098356}
+        ]
     },
     "eco_law": {
         "uz": "Ekologiya va huquq",
@@ -111,7 +113,9 @@ FACULTIES = {
         "ru": "Энергетика",
         "en": "Energy",
         "tm": "Energetika",
-        "tutors": [{"name": "Абдуллаев Ботир", "id": 485351327}]
+        "tutors": [
+            {"name": "Абдуллаев Ботир", "id": 485351327}
+        ]
     },
     "land": {
         "uz": "Yer resurslari va kadastr",
@@ -128,7 +132,9 @@ FACULTIES = {
         "ru": "Гидромелиорация",
         "en": "Hydromelioration",
         "tm": "Gidromeliorasiýa",
-        "tutors": [{"name": "Ахмеджанова Гулчеҳra", "id": 503802473}]
+        "tutors": [
+            {"name": "Ахмеджанова Гулчеҳра", "id": 503802473}
+        ]
     },
     "economy": {
         "uz": "Iqtisodiyot",
@@ -137,11 +143,12 @@ FACULTIES = {
         "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Эгамова Дильбар", "id": 115619153},
-            {"name": "Шодиеva Гулбахор", "id": 401016810},
+            {"name": "Шодиева Гулбахор", "id": 401016810},
         ]
     }
 }
 
+# msg_id -> {"user_id":..., "lang":...}
 pending_messages = {}
 
 
@@ -200,7 +207,7 @@ async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =====================
-# TELEFON (KONTAKT)
+# TELEFON (CONTACT)
 # =====================
 async def phone_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("state") != "phone":
@@ -213,6 +220,7 @@ async def phone_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
     t = LANG[lang]
 
     context.user_data["state"] = "faculty"
+
     await update.message.reply_text(t["phone_ok"], reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text(t["faculty"], reply_markup=faculties_keyboard(lang))
 
@@ -242,11 +250,10 @@ async def phone_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =====================
-# FAKULTET
+# FAKULTET TANLASH
 # =====================
 async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("state") not in ("faculty", "tutor"):
-        # noto'g'ri bosqichda bosilsa – e’tibor bermaymiz
+    if context.user_data.get("state") not in ("faculty", "again_faculty"):
         await update.callback_query.answer()
         return
 
@@ -277,7 +284,7 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =====================
-# TUTOR
+# TUTOR TANLASH
 # =====================
 async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if context.user_data.get("state") != "tutor":
@@ -298,14 +305,11 @@ async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # SAVOL → GURUH
 # =====================
 async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    state = context.user_data.get("state")
-    if state != "question":
+    if context.user_data.get("state") != "question":
         await update.message.reply_text(T(context, "use_buttons"))
         return
 
     user = update.message.from_user
-
-    # Telefon / fakultet bo'lmasa ham, "—" qilib yozamiz
     phone = context.user_data.get("phone", "—")
     fac_key = context.user_data.get("faculty_key")
     lang = get_lang(context)
@@ -360,7 +364,7 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # =====================
-# TUTOR → TALABA
+# TUTOR → TALABA JAVOB
 # =====================
 async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != TUTORS_GROUP_ID:
@@ -384,7 +388,10 @@ async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if tutor.last_name:
         full_name += f" {tutor.last_name}"
 
-    await context.bot.send_message(user_id, f"👨‍🏫 {full_name}:\n{ans}")
+    await context.bot.send_message(
+        user_id,
+        f"👨‍🏫 {full_name}:\n{ans}"
+    )
 
     kb = InlineKeyboardMarkup([[InlineKeyboardButton(t["again"], callback_data="again")]])
     await context.bot.send_message(user_id, t["again_msg"], reply_markup=kb)
@@ -402,7 +409,7 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lang = get_lang(context)
     t = LANG[lang]
 
-    context.user_data["state"] = "faculty"
+    context.user_data["state"] = "again_faculty"
     await q.message.reply_text(t["faculty"], reply_markup=faculties_keyboard(lang))
 
 
@@ -419,7 +426,7 @@ async def private_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE
     if state == "phone":
         await phone_text(update, context)
     else:
-        # faculty / tutor / question / idle → savol handleriga beramiz
+        # faculty / tutor / question / idle → savol deb ko‘ramiz
         await question_handler(update, context)
 
 
