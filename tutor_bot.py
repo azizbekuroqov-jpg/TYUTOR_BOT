@@ -100,10 +100,11 @@ FACULTIES = {
         ]
     },
     "mech": {
-        "uz": "Mexanizatsiya",
-        "ru": "Механизация",
-        "en": "Mechanization",
-        "tm": "Mehanizasiýa",
+        # ⭐ Siz aytgandek nomini to‘g‘riladim:
+        "uz": "Qishloq xo‘jaligini mexanizatsiyalash",
+        "ru": "Механизация сельского хозяйства",
+        "en": "Agricultural Mechanization",
+        "tm": "Oba hojalygyny mehanizasiýasynyň",
         "tutors": []
     },
     "energy": {
@@ -137,7 +138,7 @@ FACULTIES = {
         "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Эгамова Дильбар", "id": 115619153},
-            {"name": "Шодиева Гулбахор", "id": 401016810},
+            {"name": "Шодиеva Гулбахор", "id": 401016810},
         ]
     }
 }
@@ -186,24 +187,25 @@ async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 async def phone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Raqamni kontakt orqali ham, oddiy matn orqali ham qabul qiladi.
-    State tekshiruvini juda qattiq qilmaymiz, shunda user adashsa ham o‘tib ketadi.
+    - Kontakt orqali yuborilgan raqam HAR DOIM qabul qilinadi (state ga qaramay).
+    - Matn bilan yozilgan raqam faqat state == 'phone' bo‘lsa ishlaydi.
     """
-    lang = context.user_data.get("lang")
-    if not lang:
-        # Til tanlanmagan bo‘lsa
-        lang = "uz"
-        await update.message.reply_text(LANG[lang]["start_first"])
-        return
 
+    lang = context.user_data.get("lang", "uz")
     t = LANG[lang]
 
-    # Kontakt orqali keldi
+    # 1) Kontakt keldi -> albatta qabul qilamiz
     if update.message.contact:
         phone = update.message.contact.phone_number
+
+    # 2) Oddiy matn keldi -> faqat state == 'phone' bo‘lsa raqam sifatida qabul qilamiz
     else:
-        # Matn shaklida keldi
-        phone = (update.message.text or "").replace(" ", "").replace("-", "")
+        if context.user_data.get("state") != "phone":
+            # Bu text telefon emas, boshqa bosqichdagi matn bo‘lishi mumkin
+            return
+
+        raw = (update.message.text or "").strip()
+        phone = raw.replace(" ", "").replace("-", "")
         if not phone or not phone.replace("+", "").isdigit():
             await update.message.reply_text(t["err_phone"])
             return
@@ -236,7 +238,7 @@ async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tutors = faculty["tutors"]
 
     if not tutors:
-        # Tyutor yo‘q → to‘g‘ri savol
+        # Tyutor yo‘q → to‘g‘ri savolga o‘tamiz
         context.user_data["state"] = "question"
         await q.message.reply_text(t["question"])
         return
@@ -269,6 +271,7 @@ async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # QUESTION RECEIVED
 # =====================
 async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # faqat savol bosqichida ishlaydi
     if context.user_data.get("state") != "question":
         return
 
@@ -282,17 +285,16 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     tutor_id = context.user_data.get("tutor_id")
     tutor_name = None
-    if tutor_id:
+    if tutor_id and fac_key:
         for f in FACULTIES[fac_key]["tutors"]:
             if f["id"] == tutor_id:
                 tutor_name = f["name"]
 
     qtext = update.message.text
 
-    # Guruhga xabar
-    student_link = f'<a href="tg://user?id={user.id}">{html.escape(user.first_name)}</a>'
+    student_link = f'<a href="tg://user?id={user.id}">{html.escape(user.first_name or "Talaba")}</a>'
     tutor_link = (
-        f'<a href="tg://user?id={tutor_id}">{tutor_name}</a>' if tutor_id else "—"
+        f'<a href="tg://user?id={tutor_id}">{html.escape(tutor_name)}</a>' if tutor_id and tutor_name else "—"
     )
 
     msg = (
@@ -304,14 +306,22 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"💬 Savol: {html.escape(qtext)}"
     )
 
-    sent = await context.bot.send_message(
-        TUTORS_GROUP_ID, msg, parse_mode="HTML"
-    )
+    try:
+        sent = await context.bot.send_message(
+            TUTORS_GROUP_ID, msg, parse_mode="HTML"
+        )
 
-    # javobni bog‘lash
-    pending_messages[sent.message_id] = {"user_id": user.id, "lang": lang}
+        # javobni bog‘lash
+        pending_messages[sent.message_id] = {"user_id": user.id, "lang": lang}
 
-    await update.message.reply_text(t["sent"])
+        await update.message.reply_text(t["sent"])
+    except Exception as e:
+        logger.exception("Guruhga habar yuborishda xato: %s", e)
+        await update.message.reply_text(
+            "❗ Savolingizni yuborishda texnik xato yuz berdi.\n"
+            "Iltimos, birozdan so‘ng qayta urinib ko‘ring yoki tyutor bilan bevosita bog‘laning."
+        )
+
     context.user_data["state"] = "idle"
 
 # =====================
@@ -320,7 +330,6 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != TUTORS_GROUP_ID:
         return
-
     if not update.message.reply_to_message:
         return
 
@@ -336,7 +345,7 @@ async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tutor = update.message.from_user
     ans = update.message.text
 
-    full_name = tutor.first_name
+    full_name = tutor.first_name or ""
     if tutor.last_name:
         full_name += f" {tutor.last_name}"
 
@@ -345,7 +354,6 @@ async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"👨‍🏫 {full_name}:\n{ans}"
     )
 
-    # Yana savol
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(t["again"], callback_data="again")]
     ])
@@ -373,25 +381,6 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(t["faculty"], reply_markup=kb)
 
 # =====================
-# PRIVATE TEXT ROUTER
-# =====================
-async def private_text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Private chatdagi ODDIY MATN xabarlari shu yerga keladi.
-    State bo‘yicha qaysi handlerni chaqiramiz.
-    """
-    state = context.user_data.get("state")
-
-    if state == "phone" or ("phone" not in context.user_data and state is None):
-        await phone_handler(update, context)
-    elif state == "question":
-        await question_handler(update, context)
-    else:
-        # Noma'lum holat — userga /start ni eslatamiz
-        lang = context.user_data.get("lang", "uz")
-        await update.message.reply_text(LANG[lang]["start_first"])
-
-# =====================
 # MAIN
 # =====================
 def main():
@@ -404,11 +393,16 @@ def main():
     app.add_handler(CallbackQueryHandler(choose_tutor, pattern="^tutor"))
     app.add_handler(CallbackQueryHandler(again, pattern="^again$"))
 
-    # Private: kontakt va matnni alohida boshqaramiz
+    # PRIVATE:
+    # 1) Kontakt yuborilsa -> phone_handler
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.CONTACT, phone_handler))
-    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, private_text_router))
+    # 2) Matn yuborilsa:
+    #    avval question_handler (agar state == 'question' bo‘lsa),
+    #    keyin phone_handler (agar state == 'phone' bo‘lsa)
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, question_handler))
+    app.add_handler(MessageHandler(filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND, phone_handler))
 
-    # Group reply (tyutorlar guruhi)
+    # GROUP: tyutorlar javobi
     app.add_handler(MessageHandler(filters.Chat(TUTORS_GROUP_ID) & filters.TEXT & ~filters.COMMAND, tutor_reply))
 
     app.run_polling()
