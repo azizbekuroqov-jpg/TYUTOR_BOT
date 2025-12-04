@@ -1,130 +1,160 @@
 import logging
 import html
+
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup,
-    KeyboardButton, ReplyKeyboardMarkup, ReplyKeyboardRemove
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    ReplyKeyboardRemove,
 )
 from telegram.ext import (
-    Application, CommandHandler, MessageHandler,
-    CallbackQueryHandler, ContextTypes, filters
+    Application,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
 )
 
-# =====================
+# =======================
 # CONFIG
-# =====================
-BOT_TOKEN = "8368341342:AAFubPHLot6nOj4UupdkZzC1YD-5RO1_tp0"           # 🔥 O'ZGARTIRING
-TUTORS_GROUP_ID = -1003374172310       # 🔥 O'ZGARTIRING
+# =======================
 
-logging.basicConfig(level=logging.INFO)
+BOT_TOKEN = "8368341342:AAFubPHLot6nOj4UupdkZzC1YD-5RO1_tp0"          # <-- O'Z BOT TOKENINGIZNI YOZING
+TUTORS_GROUP_ID = -1003374172310           # <-- TYUTORLAR GURUHI ID
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO,
+)
 logger = logging.getLogger(__name__)
 
-# =====================
-# TIL PAKETI
-# =====================
-LANG = {
+# =======================
+# TILLAR
+# =======================
+
+LANG_PACK = {
     "uz": {
         "start": "Assalomu alaykum!\nTilni tanlang:",
-        "phone": "📱 Telefon raqamingizni ulashing yoki kiriting:",
+        "lang_chosen": "Til tanlandi: 🇺🇿 O‘zbek",
+        "share_phone": "📱 Iltimos, telefon raqamingizni ulashing yoki qo‘lda kiriting:",
+        "choose_faculty": "🏫 Fakultetingizni tanlang:",
+        "choose_tutor": "👨‍🏫 Tyutorni tanlang:",
+        "write_question": "✍️ Savolingizni yozing:",
+        "sent": (
+            "✔ Savolingiz tyutorlarga yuborildi!\n"
+            "⏳ Tez orada javob beramiz.\n"
+            "Murojaatingiz uchun rahmat!"
+        ),
+        "again": "➕ Yana savol bermoqchimisiz?",
+        "invalid_phone": "❗ Telefon raqamini to‘g‘ri kiriting.",
         "phone_ok": "✅ Raqam qabul qilindi.",
-        "faculty": "🏫 Fakultetingizni tanlang:",
-        "tutor": "👨‍🏫 Tyutorni tanlang:",
-        "question": "✍️ Savolingizni yozing:",
-        "sent": "✔ Savolingiz yuborildi!\n⏳ Tez orada javob beramiz.",
-        "again": "➕ Yana savol berish",
-        "again_msg": "Yana savol bermoqchimisiz?",
-        "err_phone": "❗ Telefon raqami noto‘g‘ri."
+        "media_from_tutor": "🔊 Tyutordan media xabar yuborildi.",
     },
     "ru": {
         "start": "Здравствуйте!\nВыберите язык:",
-        "phone": "📱 Отправьте ваш номер:",
+        "lang_chosen": "Язык выбран: 🇷🇺 Русский",
+        "share_phone": "📱 Пожалуйста, отправьте свой номер или введите вручную:",
+        "choose_faculty": "🏫 Выберите факультет:",
+        "choose_tutor": "👨‍🏫 Выберите тьютора:",
+        "write_question": "✍️ Напишите ваш вопрос:",
+        "sent": "✔ Ваш вопрос отправлен тьюторам!\n⏳ Скоро получите ответ.",
+        "again": "➕ Хотите задать ещё вопрос?",
+        "invalid_phone": "❗ Введите корректный номер телефона.",
         "phone_ok": "✅ Номер принят.",
-        "faculty": "🏫 Выберите факультет:",
-        "tutor": "👨‍🏫 Выберите тьютора:",
-        "question": "✍️ Введите свой вопрос:",
-        "sent": "✔ Ваш вопрос отправлен!\n⏳ Скоро ответим.",
-        "again": "➕ Задать ещё вопрос",
-        "again_msg": "Хотите задать еще вопрос?",
-        "err_phone": "❗ Неверный номер."
+        "media_from_tutor": "🔊 От тьютора отправлено медиа-сообщение.",
     },
     "en": {
         "start": "Hello!\nChoose language:",
-        "phone": "📱 Share or type your phone number:",
-        "phone_ok": "✅ Phone saved.",
-        "faculty": "🏫 Select faculty:",
-        "tutor": "👨‍🏫 Select tutor:",
-        "question": "✍️ Write your question:",
-        "sent": "✔ Sent!\n⏳ Tutors will reply soon.",
-        "again": "➕ Ask another question",
-        "again_msg": "Want to ask another question?",
-        "err_phone": "❗ Invalid phone number."
+        "lang_chosen": "Language selected: 🇬🇧 English",
+        "share_phone": "📱 Please share your phone number or type it manually:",
+        "choose_faculty": "🏫 Select your faculty:",
+        "choose_tutor": "👨‍🏫 Select tutor:",
+        "write_question": "✍️ Write your question:",
+        "sent": "✔ Your question has been sent!\n⏳ Tutors will reply soon.",
+        "again": "➕ Do you want to ask another question?",
+        "invalid_phone": "❗ Please enter a valid phone number.",
+        "phone_ok": "✅ Phone number saved.",
+        "media_from_tutor": "🔊 A media message has been sent by the tutor.",
     },
     "tm": {
         "start": "Salam!\nDili saýlaň:",
-        "phone": "📱 Telefon belgisiňiz giriziň:",
-        "phone_ok": "✅ Kabul edildi.",
-        "faculty": "🏫 Fakulteti saýlaň:",
-        "tutor": "👨‍🏫 Tyutor saýlaň:",
-        "question": "✍️ Soragyňyzy ýazyň:",
-        "sent": "✔ Ugratdyk!\n⏳ Jogap geler.",
-        "again": "➕ Ýene sorag bermek",
-        "again_msg": "Ýene sorag bermek isleýärsiňizmi?",
-        "err_phone": "❗ Telefon nädogry."
-    }
+        "lang_chosen": "Dil saýlandy: 🇹🇲 Türkmençe",
+        "share_phone": "📱 Telefon belgiňiz paýlaşyň ýa-da el bilen ýazyň:",
+        "choose_faculty": "🏫 Fakulteti saýlaň:",
+        "choose_tutor": "👨‍🏫 Tyutory saýlaň:",
+        "write_question": "✍️ Soragyňyzy ýazyň:",
+        "sent": "✔ Soragyňyz ugradyldy!\n⏳ Jogap gysga wagtda gelýär.",
+        "again": "➕ Ýene-de sorag bermek isleýärsiňizmi?",
+        "invalid_phone": "❗ Telefon belgiňiz dogry däl.",
+        "phone_ok": "✅ Telefon belgiňiz kabul edildi.",
+        "media_from_tutor": "🔊 Tyutordan media habary ugradyldy.",
+    },
 }
 
-# =====================
-# FAKULTETLAR
-# =====================
+# =======================
+# FAKULTETLAR + TYUTORLAR
+# =======================
+
 FACULTIES = {
     "hydraulic": {
         "uz": "Gidrotexnika qurilishi",
         "ru": "Гидротехническое строительство",
         "en": "Hydraulic Engineering",
         "tm": "Gidrotehniki gurluşyk",
-        "tutors": [{"name": "Хурсандова Дилафруз", "id": 6939098356}]
+        "tutors": [
+            {"name": "Хурсандова Дилафруз", "id": 6939098356},
+        ],
     },
     "eco_law": {
         "uz": "Ekologiya va huquq",
         "ru": "Экология и право",
-        "en": "Ecology & Law",
+        "en": "Ecology and Law",
         "tm": "Ekologiýa we hukuk",
         "tutors": [
             {"name": "Ахмедова Ирода", "id": 6926132637},
             {"name": "Шоназаров Акбар", "id": 2052678760},
             {"name": "Саидова Хурсаной", "id": 702931087},
             {"name": "Худойназарова Дилнавоз", "id": 310033808},
-        ]
+        ],
     },
     "mech": {
-        "uz": "Mexanizatsiya",
-        "ru": "Механизация",
-        "en": "Mechanization",
+        # SEN AYTGANDING: Qishloq xo‘jaligini mexanizatsiyalash
+        "uz": "Qishloq xo‘jaligini mexanizatsiyalash",
+        "ru": "Механизация сельского хозяйства",
+        "en": "Agricultural Mechanization",
         "tm": "Mehanizasiýa",
-        "tutors": []
+        "tutors": [],
     },
     "energy": {
         "uz": "Energetika",
         "ru": "Энергетика",
-        "en": "Energy",
+        "en": "Energy Engineering",
         "tm": "Energetika",
-        "tutors": [{"name": "Абдуллаев Ботир", "id": 485351327}]
+        "tutors": [
+            {"name": "Абдуллаев Ботир", "id": 485351327},
+        ],
     },
     "land": {
         "uz": "Yer resurslari va kadastr",
-        "ru": "Кадастр",
-        "en": "Land & Cadastre",
-        "tm": "Ýer kadastry",
+        "ru": "Земельные ресурсы и кадастр",
+        "en": "Land Resources and Cadastre",
+        "tm": "Ýer serişdeleri we kadastr",
         "tutors": [
             {"name": "Турғунова Мафтуна", "id": 8376601534},
             {"name": "Абдуллаева Олия", "id": 2134838705},
-        ]
+        ],
     },
     "hydromel": {
         "uz": "Gidromelioratsiya",
         "ru": "Гидромелиорация",
         "en": "Hydromelioration",
         "tm": "Gidromeliorasiýa",
-        "tutors": [{"name": "Ахмеджанова Гулчеҳра", "id": 503802473}]
+        "tutors": [
+            {"name": "Ахмеджанова Гулчеҳра", "id": 503802473},
+        ],
     },
     "economy": {
         "uz": "Iqtisodiyot",
@@ -133,256 +163,415 @@ FACULTIES = {
         "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Эгамова Дильбар", "id": 115619153},
-            {"name": "Шодиева Гулбахор", "id": 401016810},
-        ]
-    }
+            {"name": "Шодиева Гулbahor", "id": 401016810},
+        ],
+    },
 }
 
-# pending_messages[msg_id] = {"user": ..., "lang": ...}
-pending_messages = {}
+# Guruhdagi savol xabari ID → {"user_id": ..., "lang": ...}
+pending_questions: dict[int, dict] = {}
 
-# =====================
-# START
-# =====================
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    context.user_data["state"] = "lang"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
-        [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang|ru")],
-        [InlineKeyboardButton("🇬🇧 English", callback_data="lang|en")],
-        [InlineKeyboardButton("🇹🇲 Türkmençe", callback_data="lang|tm")],
-    ])
+# =======================
+# HELP FUNKSIYALAR
+# =======================
 
-    await update.message.reply_text("Assalomu alaykum!\nTilni tanlang:", reply_markup=kb)
-
-# =====================
-# LANGUAGE CHOSEN
-# =====================
-async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-
-    lang = q.data.split("|")[1]
-    context.user_data["lang"] = lang
-    context.user_data["state"] = "phone"
-
-    t = LANG[lang]
-
-    kb = ReplyKeyboardMarkup(
-        [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
-        resize_keyboard=True, one_time_keyboard=True
+def make_lang_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
+            [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang|ru")],
+            [InlineKeyboardButton("🇬🇧 English", callback_data="lang|en")],
+            [InlineKeyboardButton("🇹🇲 Türkmençe", callback_data="lang|tm")],
+        ]
     )
 
-    await q.message.reply_text(t["phone"], reply_markup=kb)
 
-# =====================
-# PHONE HANDLER
-# =====================
-async def phone_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("state") != "phone":
+def make_faculty_keyboard(lang: str) -> InlineKeyboardMarkup:
+    keyboard = [
+        [InlineKeyboardButton(fac[lang], callback_data=f"faculty|{key}")]
+        for key, fac in FACULTIES.items()
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+
+# =======================
+# /start
+# =======================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Faqat private chatda ishlaymiz
+    if update.effective_chat.type != "private":
         return
 
-    lang = context.user_data["lang"]
-    t = LANG[lang]
+    context.user_data.clear()
+    context.user_data["state"] = "await_lang"
 
-    if update.message.contact:
-        phone = update.message.contact.phone_number
-    else:
-        phone = update.message.text.replace(" ", "").replace("-", "")
-        if not phone.replace("+","").isdigit():
-            await update.message.reply_text(t["err_phone"])
+    await update.message.reply_text(
+        LANG_PACK["uz"]["start"],
+        reply_markup=make_lang_keyboard(),
+    )
+
+
+# =======================
+# Til tanlash
+# =======================
+async def choose_language(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    _, lang = query.data.split("|")
+    if lang not in LANG_PACK:
+        lang = "uz"
+
+    context.user_data["lang"] = lang
+    context.user_data["state"] = "await_phone"
+
+    t = LANG_PACK[lang]
+
+    # Til tanlanganini alohida ko‘rsatamiz
+    await query.edit_message_text(t["lang_chosen"])
+
+    # Telefon tugmasi faqat shu yerda va faqat BIR MARTA chiqadi
+    phone_btn_text = {
+        "uz": "📱 Raqamni ulashish",
+        "ru": "📱 Поделиться номером",
+        "en": "📱 Share phone number",
+        "tm": "📱 Telefon belgimi paýlaş",
+    }.get(lang, "📱 Raqamni ulashish")
+
+    kb = ReplyKeyboardMarkup(
+        [[KeyboardButton(phone_btn_text, request_contact=True)]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+    await query.message.reply_text(t["share_phone"], reply_markup=kb)
+
+
+# =======================
+# Telefon (contact) – faqat PHONE bosqichida
+# =======================
+async def handle_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+
+    if context.user_data.get("state") != "await_phone":
+        # Noto‘g‘ri bosqichda kelgan contact – e’tiborsiz
+        return
+
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
+
+    phone = update.message.contact.phone_number
+    context.user_data["phone"] = phone
+    context.user_data["state"] = "await_faculty"
+
+    # Telefon tugmasini yo‘qotamiz
+    await update.message.reply_text(
+        t["phone_ok"],
+        reply_markup=ReplyKeyboardRemove(),
+    )
+
+    await show_faculty_menu(update, context)
+
+
+# =======================
+# Private text – telefon yoki savol
+# =======================
+async def handle_private_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.type != "private":
+        return
+
+    state = context.user_data.get("state")
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
+
+    # 1) Telefon qo‘lda kiritish
+    if state == "await_phone":
+        phone = update.message.text.strip()
+        clean = phone.replace("+", "").replace(" ", "").replace("-", "")
+        if not clean.isdigit() or len(clean) < 7:
+            await update.message.reply_text(t["invalid_phone"])
             return
 
-    context.user_data["phone"] = phone
-    context.user_data["state"] = "faculty"
+        context.user_data["phone"] = phone
+        context.user_data["state"] = "await_faculty"
 
-    await update.message.reply_text(t["phone_ok"], reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(
+            t["phone_ok"],
+            reply_markup=ReplyKeyboardRemove(),
+        )
 
-    # Fakultetlar menyusi
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(fac[lang], callback_data=f"fac|{key}")]
-        for key, fac in FACULTIES.items()
-    ])
-    await update.message.reply_text(t["faculty"], reply_markup=kb)
-
-# =====================
-# FACULTY SELECTED
-# =====================
-async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-
-    fac_key = q.data.split("|")[1]
-    lang = context.user_data["lang"]
-    t = LANG[lang]
-
-    context.user_data["faculty_key"] = fac_key
-    faculty = FACULTIES[fac_key]
-    tutors = faculty["tutors"]
-
-    if not tutors:
-        # Tyutor yo‘q → to‘g‘ri savol
-        context.user_data["state"] = "question"
-        await q.message.reply_text(t["question"])
+        await show_faculty_menu(update, context)
         return
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(t["name"], callback_data=f"tutor|{t['id']}")]
-        for t in tutors
-    ])
+    # 2) Savol yozish bosqichi
+    if state == "await_question":
+        await handle_student_question(update, context)
+        return
 
-    context.user_data["state"] = "tutor"
-    await q.message.reply_text(t["tutor"], reply_markup=kb)
+    # Boshqa holatlarda jim — lekin userni bezovta qilib /start demaymiz
+    # Kerak bo‘lsa /startni o‘zi bosadi.
 
-# =====================
-# TUTOR SELECTED
-# =====================
-async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
 
-    tutor_id = int(q.data.split("|")[1])
-    context.user_data["tutor_id"] = tutor_id
-    context.user_data["state"] = "question"
+# =======================
+# Fakultet menyusi
+# =======================
+async def show_faculty_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
 
-    lang = context.user_data["lang"]
-    t = LANG[lang]
+    await update.message.reply_text(
+        t["choose_faculty"],
+        reply_markup=make_faculty_keyboard(lang),
+    )
 
-    await q.message.reply_text(t["question"])
 
-# =====================
-# QUESTION RECEIVED
-# =====================
-async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if context.user_data.get("state") != "question":
+# =======================
+# Fakultet tanlandi
+# =======================
+async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    _, fac_key = query.data.split("|")
+    if fac_key not in FACULTIES:
+        return
+
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
+
+    context.user_data["faculty_key"] = fac_key
+    faculty_name = FACULTIES[fac_key][lang]
+    context.user_data["faculty_name"] = faculty_name
+
+    tutors = FACULTIES[fac_key]["tutors"]
+
+    # Agar tyutor bo‘lmasa — to‘g‘ridan-to‘g‘ri savol bosqichiga
+    if not tutors:
+        context.user_data["selected_tutor_id"] = None
+        context.user_data["selected_tutor_name"] = "Tyutor (biriktirilmagan)"
+        context.user_data["state"] = "await_question"
+        await query.edit_message_text(t["write_question"])
+        return
+
+    # Tyutorlar menyusi
+    keyboard = [
+        [InlineKeyboardButton(tu["name"], callback_data=f"tutor|{fac_key}|{tu['id']}")]
+        for tu in tutors
+    ]
+
+    context.user_data["state"] = "await_tutor"
+
+    await query.edit_message_text(
+        t["choose_tutor"],
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+# =======================
+# Tyutor tanlandi
+# =======================
+async def tutor_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    try:
+        _, fac_key, tutor_id = query.data.split("|")
+        tutor_id = int(tutor_id)
+    except Exception:
+        return
+
+    if fac_key not in FACULTIES:
+        return
+
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
+
+    context.user_data["faculty_name"] = FACULTIES[fac_key][lang]
+
+    tutor_name = next(
+        (tu["name"] for tu in FACULTIES[fac_key]["tutors"] if tu["id"] == tutor_id),
+        None,
+    )
+    if tutor_name is None:
+        return
+
+    context.user_data["selected_tutor_id"] = tutor_id
+    context.user_data["selected_tutor_name"] = tutor_name
+    context.user_data["state"] = "await_question"
+
+    await query.edit_message_text(t["write_question"])
+
+
+# =======================
+# Talaba savolini qabul qilish
+# =======================
+async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if context.user_data.get("state") != "await_question":
         return
 
     user = update.message.from_user
-    lang = context.user_data["lang"]
-    t = LANG[lang]
+    question = update.message.text
 
-    phone = context.user_data["phone"]
-    fac_key = context.user_data["faculty_key"]
-    faculty = FACULTIES[fac_key][lang]
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
 
-    tutor_id = context.user_data.get("tutor_id")
-    tutor_name = None
-    if tutor_id:
-        for f in FACULTIES[fac_key]["tutors"]:
-            if f["id"] == tutor_id:
-                tutor_name = f["name"]
+    phone = context.user_data.get("phone", "Noma'lum")
+    faculty_name = context.user_data.get("faculty_name", "Noma'lum")
+    tutor_id = context.user_data.get("selected_tutor_id")
+    tutor_name = context.user_data.get("selected_tutor_name", "Noma'lum")
 
-    qtext = update.message.text
-
-    # Guruhga xabar
-    student_link = f'<a href="tg://user?id={user.id}">{html.escape(user.first_name)}</a>'
-    tutor_link = (
-        f'<a href="tg://user?id={tutor_id}">{tutor_name}</a>' if tutor_id else "—"
+    # CLICKABLE mentionlar — HTML
+    student_full_name = (user.first_name or "") + (
+        f" {user.last_name}" if user.last_name else ""
     )
+    student_mention = f'<a href="tg://user?id={user.id}">{html.escape(student_full_name.strip() or "Talaba")}</a>'
 
-    msg = (
-        "📩 Yangi savol!\n"
-        f"👤 Talaba: {student_link}\n"
-        f"📞 {phone}\n"
-        f"🏫 Fakulteti: {faculty}\n"
-        f"👨‍🏫 Tyutor: {tutor_link}\n\n"
-        f"💬 Savol: {html.escape(qtext)}"
+    if tutor_id:
+        tutor_mention = f'<a href="tg://user?id={tutor_id}">{html.escape(tutor_name)}</a>'
+    else:
+        tutor_mention = html.escape(tutor_name)
+
+    # Usernameni ham chiqaramiz (agar bo‘lsa)
+    username_part = f" (@{user.username})" if user.username else ""
+
+    text = (
+        "📩 <b>Yangi savol!</b>\n\n"
+        f"👤 Talaba: {student_mention}{html.escape(username_part)}\n"
+        f"🆔 ID: <code>{user.id}</code>\n"
+        f"📞 Telefon: {html.escape(phone)}\n"
+        f"🏫 Fakulteti: {html.escape(faculty_name)}\n"
+        f"👨‍🏫 Tyutor: {tutor_mention}\n\n"
+        f"💬 Savol:\n<blockquote>{html.escape(question)}</blockquote>"
     )
 
     sent = await context.bot.send_message(
-        TUTORS_GROUP_ID, msg, parse_mode="HTML"
+        TUTORS_GROUP_ID,
+        text,
+        parse_mode="HTML",
+        disable_web_page_preview=True,
     )
 
-    # javobni bog‘lash
-    pending_messages[sent.message_id] = {"user_id": user.id, "lang": lang}
+    # mapping: qaysi xabar → qaysi talaba + til
+    pending_questions[sent.message_id] = {"user_id": user.id, "lang": lang}
 
     await update.message.reply_text(t["sent"])
+
+    # Holatni tozalab qo‘yamiz — biroq lang / phone saqlanib turadi
     context.user_data["state"] = "idle"
 
-# =====================
-# GROUP REPLY (Tutor → Student)
-# =====================
-async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat_id != TUTORS_GROUP_ID:
+
+# =======================
+# Guruhda tyutor javobi (reply)
+# =======================
+async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Faqat ma'lum guruhda ishlaydi
+    if update.effective_chat.id != TUTORS_GROUP_ID:
         return
 
-    if not update.message.reply_to_message:
+    msg = update.message
+    if not msg.reply_to_message:
         return
 
-    orig_id = update.message.reply_to_message.message_id
-    if orig_id not in pending_messages:
+    original_id = msg.reply_to_message.message_id
+    info = pending_questions.get(original_id)
+    if not info:
         return
 
-    data = pending_messages[orig_id]
-    user_id = data["user_id"]
-    lang = data["lang"]
-    t = LANG[lang]
+    user_id = info["user_id"]
+    lang = info.get("lang", "uz")
+    t = LANG_PACK.get(lang, LANG_PACK["uz"])
 
-    tutor = update.message.from_user
-    ans = update.message.text
+    tutor = msg.from_user
+    answer_text = msg.text or msg.caption
+    if not answer_text:
+        answer_text = t["media_from_tutor"]
 
-    full_name = tutor.first_name
+    full_name = tutor.first_name or ""
     if tutor.last_name:
         full_name += f" {tutor.last_name}"
+    if tutor.username:
+        full_name += f" (@{tutor.username})"
+
+    reply_for_student = f"👨‍🏫 {full_name}:\n\n{answer_text}"
+
+    try:
+        await context.bot.send_message(user_id, reply_for_student)
+    except Exception as e:
+        logger.error("Talabaga javob yuborishda xato: %s", e)
+
+    keyboard = [
+        [InlineKeyboardButton("➕ Yana savol berish", callback_data="again")]
+    ]
 
     await context.bot.send_message(
         user_id,
-        f"👨‍🏫 {full_name}:\n{ans}"
+        t["again"],
+        reply_markup=InlineKeyboardMarkup(keyboard),
     )
 
-    # Yana savol
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(t["again"], callback_data="again")]
-    ])
-    await context.bot.send_message(user_id, t["again_msg"], reply_markup=kb)
+    # Ushbu savol bo‘yicha mappingni tozalaymiz
+    pending_questions.pop(original_id, None)
 
-    del pending_messages[orig_id]
 
-# =====================
-# AGAIN BUTTON
-# =====================
-async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
+# =======================
+# "Yana savol berish" tugmasi
+# =======================
+async def ask_again(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
 
-    lang = (
-        context.user_data.get("lang")
-        or LANG.keys().__iter__().__next__()   # fallback
+    lang = context.user_data.get("lang", "uz")
+    t = LANG_PACK[lang]
+
+    # Yana savol → fakultetdan qayta boshlaymiz, lekin raqam/til saqlanadi
+    context.user_data["state"] = "await_faculty"
+
+    await query.message.reply_text(
+        t["choose_faculty"],
+        reply_markup=make_faculty_keyboard(lang),
     )
-    t = LANG[lang]
 
-    context.user_data["state"] = "faculty"
 
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(FACULTIES[key][lang], callback_data=f"fac|{key}")]
-        for key in FACULTIES
-    ])
-
-    await q.message.reply_text(t["faculty"], reply_markup=kb)
-
-# =====================
+# =======================
 # MAIN
-# =====================
+# =======================
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
+    # Private chat handlerlar
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(choose_lang, pattern="^lang"))
-    app.add_handler(CallbackQueryHandler(choose_faculty, pattern="^fac"))
-    app.add_handler(CallbackQueryHandler(choose_tutor, pattern="^tutor"))
-    app.add_handler(CallbackQueryHandler(again, pattern="^again$"))
+    app.add_handler(CallbackQueryHandler(choose_language, pattern=r"^lang\|"))
+    app.add_handler(CallbackQueryHandler(faculty_selected, pattern=r"^faculty\|"))
+    app.add_handler(CallbackQueryHandler(tutor_selected, pattern=r"^tutor\|"))
+    app.add_handler(CallbackQueryHandler(ask_again, pattern=r"^again$"))
 
-    # Private
-    app.add_handler(MessageHandler(filters.CONTACT, phone_handler))
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, phone_handler))
-    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE, question_handler))
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.CONTACT,
+            handle_contact,
+        )
+    )
+    app.add_handler(
+        MessageHandler(
+            filters.ChatType.PRIVATE & filters.TEXT & ~filters.COMMAND,
+            handle_private_text,
+        )
+    )
 
-    # Group reply
-    app.add_handler(MessageHandler(filters.TEXT & filters.Chat(TUTORS_GROUP_ID), tutor_reply))
+    # Guruhdagi tyutor javoblari (reply)
+    app.add_handler(
+        MessageHandler(
+            filters.Chat(TUTORS_GROUP_ID)
+            & ~filters.COMMAND
+            & ~filters.StatusUpdate.ALL,
+            tutor_group_reply,
+        )
+    )
 
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 if __name__ == "__main__":
     main()
