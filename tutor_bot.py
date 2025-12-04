@@ -133,7 +133,7 @@ FACULTIES = {
         "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Эгамова Дильбар", "id": 115619153},
-            {"name": "Шодиева Гулбахор", "id": 401016810},
+            {"name": "Шодиеva Гулбахор", "id": 401016810},
         ]
     }
 }
@@ -144,6 +144,7 @@ pending_messages = {}  # msg_id -> {"user_id":..., "lang":...}
 # HELPERS
 # =====================
 def get_lang(context: ContextTypes.DEFAULT_TYPE) -> str:
+    # Agar user tanlamagan bo'lsa ham, default = 'uz'
     return context.user_data.get("lang", "uz")
 
 def T(context: ContextTypes.DEFAULT_TYPE, key: str) -> str:
@@ -156,9 +157,10 @@ def faculties_keyboard(lang: str) -> InlineKeyboardMarkup:
     ])
 
 # =====================
-# START
+# /start
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Faqat boshlashda tozalaymiz
     context.user_data.clear()
 
     kb = InlineKeyboardMarkup([
@@ -171,7 +173,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Assalomu alaykum!\nTilni tanlang:", reply_markup=kb)
 
 # =====================
-# LANGUAGE SELECT
+# TIL TANLASH
 # =====================
 async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -189,7 +191,7 @@ async def choose_lang(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(LANG[lang]["phone"], reply_markup=kb)
 
 # =====================
-# PHONE
+# TELEFON
 # =====================
 async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE, from_contact: bool):
     lang = get_lang(context)
@@ -213,7 +215,7 @@ async def handle_phone(update: Update, context: ContextTypes.DEFAULT_TYPE, from_
     )
 
 # =====================
-# FACULTY
+# FAKULTET
 # =====================
 async def choose_faculty(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -252,7 +254,7 @@ async def choose_tutor(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(T(context, "question"))
 
 # =====================
-# QUESTION
+# SAVOLNI GURUHGА YUBORISH
 # =====================
 async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
@@ -260,15 +262,12 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     phone = context.user_data.get("phone")
     fac_key = context.user_data.get("faculty_key")
 
-    # telefon yoki fakultet bo'lmasa – savol qabul qilmaymiz
+    # Telefon yoki fakultet yo'q bo'lsa – savol qabul qilmaymiz
     if not phone or not fac_key:
-        # yo'q bo'lgan joyga mos ravishda foydalanuvchini qayta yo'naltiramiz
         lang = get_lang(context)
         t = LANG[lang]
 
-        if not context.user_data.get("lang"):
-            await update.message.reply_text(t["start"])
-        elif not phone:
+        if not phone:
             kb = ReplyKeyboardMarkup(
                 [[KeyboardButton("📱 Raqamni ulashish", request_contact=True)]],
                 resize_keyboard=True,
@@ -328,7 +327,7 @@ async def question_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # =====================
-# TUTOR → STUDENT REPLY
+# TUTOR → TALABA JAVOB
 # =====================
 async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.chat_id != TUTORS_GROUP_ID:
@@ -365,7 +364,7 @@ async def tutor_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     del pending_messages[orig_id]
 
 # =====================
-# AGAIN
+# YANA SAVOL
 # =====================
 async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
@@ -378,33 +377,21 @@ async def again(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.message.reply_text(t["faculty"], reply_markup=kb)
 
 # =====================
-# PRIVATE ROUTER  (faqat ma'lumotga qarab ishlaydi)
+# PRIVATE ROUTER
 # =====================
 async def private_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Contact bo'lsa – doim telefon sifatida qabul qilamiz
+    # Contact kelgan bo'lsa – har doim telefon sifatida qabul qilamiz
     if update.message.contact:
         await handle_phone(update, context, from_contact=True)
         return
 
     text = (update.message.text or "").strip()
 
-    # /start va boshqa commandlar – alohida handler
+    # /start va boshqa commandlar – alohida handlerda
     if text.startswith("/"):
         return
 
-    # Til tanlanmagan bo'lsa – /start ni eslatish o'rniga
-    # darhol til tanlash inline keyboardini chiqaramiz
-    if "lang" not in context.user_data:
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
-            [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang|ru")],
-            [InlineKeyboardButton("🇬🇧 English", callback_data="lang|en")],
-            [InlineKeyboardButton("🇹🇲 Türkmençe", callback_data="lang|tm")],
-        ])
-        await update.message.reply_text("Tilni tanlang:", reply_markup=kb)
-        return
-
-    # Telefon yo'q – telefon so'raymiz
+    # Agar telefon yo'q bo'lsa – telefon so'raymiz
     if "phone" not in context.user_data:
         lang = get_lang(context)
         t = LANG[lang]
@@ -416,7 +403,7 @@ async def private_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(t["phone"], reply_markup=kb)
         return
 
-    # Fakultet tanlanmagan – fakultetlarni chiqaramiz
+    # Fakultet tanlanmagan – fakultet so'raymiz
     if "faculty_key" not in context.user_data:
         lang = get_lang(context)
         t = LANG[lang]
@@ -426,7 +413,7 @@ async def private_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # Qolgan har qanday xabar – savol deb qabul qilinadi
+    # Qolgan barcha holatlarda – savol
     await question_handler(update, context)
 
 # =====================
