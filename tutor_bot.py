@@ -31,11 +31,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Talaba ID sini guruh xabaridan o‘qish uchun
+# Guruh xabaridan talaba ID sini olish uchun
 ID_RE = re.compile(r"\bID:\s*(\d+)\b")
 
 # =======================
-# TILLAR (UZ / RU / EN / TM)
+# TILLAR (UZ / RU / EN)
 # =======================
 LANG_PACK = {
     "uz": {
@@ -52,7 +52,7 @@ LANG_PACK = {
         "phone_ok": "✅ Raqam qabul qilindi.",
         "media_from_tutor": "🔊 Tyutordan media xabar yuborildi.",
         "btn_share": "📱 Raqamni ulashish",
-        # Guruh xabari sarlavhalari
+        # Guruhga boradigan matnlar
         "group_new": "Yangi savol!",
         "group_student": "Talaba",
         "group_phone": "Telefon",
@@ -102,38 +102,16 @@ LANG_PACK = {
         "group_tutor": "Tutor",
         "group_question": "Question",
     },
-    "tm": {
-        "start": "Salam!\nDili saýlaň:",
-        "lang_chosen": "Dil saýlandy: 🇹🇲 Türkmençe",
-        "share_phone": "📱 Telefon belgiňizi paýlaşyň ýa-da el bilen ýazyň:",
-        "choose_faculty": "🏫 Fakulteti saýlaň:",
-        "choose_tutor": "👨‍🏫 Tyutory saýlaň:",
-        "write_question": "✍️ Soragyňyzy ýazyň:",
-        "sent": "✔ Soragyňyz tyutorlara ugradyldy.\n⏳ Jogap gysga wagtda gelýär.",
-        "again_prompt": "➕ Ýene-de sorag bermek isleýärsiňizmi?",
-        "again_btn": "➕ Ýene sorag bermek",
-        "invalid_phone": "❗ Telefon belgiňiz dogry däl.",
-        "phone_ok": "✅ Telefon belgiňiz kabul edildi.",
-        "media_from_tutor": "🔊 Tyutordan media habary ugradyldy.",
-        "btn_share": "📱 Telefon belgimi paýlaş",
-        "group_new": "Täze sorag!",
-        "group_student": "Talyp",
-        "group_phone": "Telefon",
-        "group_faculty": "Fakultet",
-        "group_tutor": "Tyutor",
-        "group_question": "Sorag",
-    },
 }
 
 # =======================
-# FAKULTETLAR + TYUTORLAR (nomlar lotincha)
+# FAKULTETLAR + TYUTORLAR (lotincha F.I.Sh.)
 # =======================
 FACULTIES = {
     "hydraulic": {
         "uz": "Gidrotexnika qurilishi",
         "ru": "Гидротехническое строительство",
         "en": "Hydraulic Engineering",
-        "tm": "Gidrotehniki gurluşyk",
         "tutors": [
             {"name": "Khursandova Dilafruz", "id": 6939098356},
         ],
@@ -142,26 +120,23 @@ FACULTIES = {
         "uz": "Ekologiya va huquq",
         "ru": "Экология и право",
         "en": "Ecology and Law",
-        "tm": "Ekologiýa we hukuk",
         "tutors": [
-            {"name": "Ahmedova Iroda", "id": 6926132637},
-            {"name": "Shonazarov Akbar", "id": 2052678760},
-            {"name": "Saidova Khursanoy", "id": 702931087},
-            {"name": "Khudoynazarova Dilnavoz", "id": 310033808},
+                {"name": "Ahmedova Iroda", "id": 6926132637},
+                {"name": "Shonazarov Akbar", "id": 2052678760},
+                {"name": "Saidova Khursanoy", "id": 702931087},
+                {"name": "Khudoynazarova Dilnavoz", "id": 310033808},
         ],
     },
     "mech": {
         "uz": "Qishloq xo‘jaligini mexanizatsiyalash",
         "ru": "Механизация сельского хозяйства",
         "en": "Agricultural Mechanization",
-        "tm": "Oba hojalygyny mehanizasiýa etmek",
         "tutors": [],
     },
     "energy": {
         "uz": "Energetika",
         "ru": "Энергетика",
         "en": "Energy Engineering",
-        "tm": "Energetika",
         "tutors": [
             {"name": "Abdullaev Botir", "id": 485351327},
         ],
@@ -170,7 +145,6 @@ FACULTIES = {
         "uz": "Yer resurslari va kadastr",
         "ru": "Земельные ресурсы и кадастр",
         "en": "Land Resources and Cadastre",
-        "tm": "Ýer serişdeleri we kadastr",
         "tutors": [
             {"name": "Turgunova Maftuna", "id": 8376601534},
             {"name": "Abdullaeva Oliya", "id": 2134838705},
@@ -180,7 +154,6 @@ FACULTIES = {
         "uz": "Gidromelioratsiya",
         "ru": "Гидромелиорация",
         "en": "Hydromelioration",
-        "tm": "Gidromeliorasiýa",
         "tutors": [
             {"name": "Ahmedjanova Gulchehra", "id": 503802473},
         ],
@@ -189,7 +162,6 @@ FACULTIES = {
         "uz": "Iqtisodiyot",
         "ru": "Экономика",
         "en": "Economics",
-        "tm": "Ykdysadyýet",
         "tutors": [
             {"name": "Egamova Dilbar", "id": 115619153},
             {"name": "Shodieva Gulbahor", "id": 401016810},
@@ -208,7 +180,6 @@ def make_lang_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("🇺🇿 O‘zbek", callback_data="lang|uz")],
         [InlineKeyboardButton("🇷🇺 Русский", callback_data="lang|ru")],
         [InlineKeyboardButton("🇬🇧 English", callback_data="lang|en")],
-        [InlineKeyboardButton("🇹🇲 Türkmençe", callback_data="lang|tm")],
     ])
 
 def make_faculty_keyboard(lang: str) -> InlineKeyboardMarkup:
@@ -305,7 +276,8 @@ async def faculty_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not tutors:
         context.user_data["selected_tutor_id"] = None
-        context.user_data["selected_tutor_name"] = "Tutor (not assigned)" if lang == "en" else "Tyutor (biriktirilmagan)"
+        context.user_data["selected_tutor_name"] = "Tyutor (biriktirilmagan)" if lang == "uz" else \
+                                                   ("Тьютор не назначен" if lang == "ru" else "Tutor (not assigned)")
         context.user_data["state"] = "await_question"
         await q.edit_message_text(t["write_question"])
         return
@@ -354,11 +326,11 @@ async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_
     tutor_id = context.user_data.get("selected_tutor_id")
     tutor_name = context.user_data.get("selected_tutor_name", "Noma'lum")
 
-    # Clickable student
+    # Talaba clickable (faqat guruhda)
     full_name = (user.first_name or "") + (f" {user.last_name}" if user.last_name else "")
     student_mention = f'<a href="tg://user?id={user.id}">{html.escape(full_name.strip() or "Student")}</a>'
     username_part = f" (@{user.username})" if user.username else ""
-    tutor_mention = f'<a href="tg://user?id={tutor_id}">{html.escape(tutor_name)}</a>' if tutor_id else html.escape(tutor_name)
+    tutor_label = html.escape(tutor_name) if not tutor_id else f'<a href="tg://user?id={tutor_id}">{html.escape(tutor_name)}</a>'
 
     text = (
         f"📩 <b>{t['group_new']}</b>\n\n"
@@ -366,7 +338,7 @@ async def handle_student_question(update: Update, context: ContextTypes.DEFAULT_
         f"🆔 ID: {user.id}\n"
         f"📞 {t['group_phone']}: {html.escape(phone)}\n"
         f"🏫 {t['group_faculty']}: {html.escape(faculty_name)}\n"
-        f"👨‍🏫 {t['group_tutor']}: {tutor_mention}\n\n"
+        f"👨‍🏫 {t['group_tutor']}: {tutor_label}\n\n"
         f"💬 {t['group_question']}:\n<blockquote>{html.escape(question)}</blockquote>"
     )
 
@@ -403,16 +375,15 @@ async def tutor_group_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     t = LANG_PACK.get(lang, LANG_PACK["uz"])
-    tutor = msg.from_user
+    # Faqat ism-familiya (username/link/ID yo‘q)
+    tutor_name = (msg.from_user.first_name or "")
+    if msg.from_user.last_name:
+        tutor_name += f" {msg.from_user.last_name}"
+
     answer_text = msg.text or msg.caption or t["media_from_tutor"]
-    name = (tutor.first_name or "")
-    if tutor.last_name:
-        name += f" {tutor.last_name}"
-    if tutor.username:
-        name += f" (@{tutor.username})"
 
     try:
-        await context.bot.send_message(user_id, f"👨‍🏫 {name}:\n\n{answer_text}")
+        await context.bot.send_message(user_id, f"👨‍🏫 {tutor_name}:\n\n{answer_text}")
         await context.bot.send_message(
             user_id,
             t["again_prompt"],
@@ -447,7 +418,7 @@ def main():
     app.add_handler(CallbackQueryHandler(tutor_selected, pattern=r"^tutor\|"))
     app.add_handler(CallbackQueryHandler(ask_again, pattern=r"^again$"))
 
-    # Private chat: barcha text/contact shu yerga keladi
+    # Private chat: barcha text/contact shu handlerga tushadi
     app.add_handler(MessageHandler(filters.ChatType.PRIVATE & ~filters.COMMAND, handle_private))
 
     # Guruhdagi tyutor javoblari
